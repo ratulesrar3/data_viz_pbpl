@@ -1,0 +1,3 @@
+# Ignoring Datasets with following extensions #
+*.csv
+*.sas7bdat
