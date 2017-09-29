@@ -56,3 +56,32 @@ acc <- rename(acc , 'StateFIPSCode' = 'STATE', 'CountyFIPSCode' = 'COUNTY')
 
 # Join with fips data
 acc <- left_join(acc, fips, by = c('StateFIPSCode', 'CountyFIPSCode'), copy = TRUE)
+
+# Find total fatalities grouped by state
+agg <- acc %>% group_by(StateName, YEAR)
+agg <- agg %>% summarize(TOTAL = sum(FATALS))
+agg_wide <- agg %>% spread(key = StateName, value = TOTAL)
+
+# EDA
+new <- mutate(agg) %>%
+  group_by(StateName) %>%
+  mutate(lag = lag(TOTAL)) %>%
+  mutate(difference = (TOTAL - lag)/lag) %>%
+  filter(!is.na(difference))
+agg_filter1 <- arrange(new, desc(difference))
+agg_filter2 <- mutate(agg_filter1) %>%
+                filter(difference > 0.15) %>%
+                filter(!is.na(StateName))
+
+# Use chain operator to do above in one statement
+agg_filter3 <- mutate(agg) %>%
+                group_by(StateName) %>%
+                mutate(lag = lag(TOTAL)) %>%
+                mutate(difference = (TOTAL - lag)/lag) %>%
+                filter(!is.na(difference)) %>%
+                arrange(desc(difference)) %>%
+                filter(difference > 0.15) %>%
+                filter(!is.na(StateName))
+
+
+
