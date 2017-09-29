@@ -82,6 +82,3 @@ agg_filter3 <- mutate(agg) %>%
                 arrange(desc(difference)) %>%
                 filter(difference > 0.15) %>%
                 filter(!is.na(StateName))
-
-
-
