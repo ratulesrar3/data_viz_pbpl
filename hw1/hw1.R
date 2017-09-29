@@ -43,6 +43,16 @@ acc <- bind_rows(acc2014, acc2015)
 count(acc, RUR_URB) # there are 30056 NAs because the 2014 data did not have RUR_URB as a var
 
 # Load fips data
-fips <- read_csv('fips.csv', skip = 1)
+fips <- read_csv('fips.csv')
 head(fips)
 glimpse(fips)
+
+# Convert to string
+acc <- mutate(acc, STATE = as.character(STATE), COUNTY = as.character(COUNTY))
+
+# Pad the string
+acc <- mutate(acc, STATE = str_pad(STATE, 2, "left", "0"), COUNTY = str_pad(COUNTY, 3, "left", pad = "0"))
+acc <- rename(acc , 'StateFIPSCode' = 'STATE', 'CountyFIPSCode' = 'COUNTY')
+
+# Join with fips data
+acc <- left_join(acc, fips, by = c('StateFIPSCode', 'CountyFIPSCode'), copy = TRUE)
