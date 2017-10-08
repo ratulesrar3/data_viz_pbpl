@@ -1,3 +1,4 @@
-# Ignoring Datasets with following extensions
+# Ignoring files with following extensions
 *.csv
 *.sas7bdat
+*.Rhistory
