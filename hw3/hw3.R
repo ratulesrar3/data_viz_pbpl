@@ -3,6 +3,7 @@ library(tidyverse)
 library(reshape2)
 library(zoo)
 library(ggrepel)
+library(readxl)
 
 # Set working directory
 setwd('/Users/ratulesrar/Desktop/data_viz_pbpl/hw2/')
@@ -68,7 +69,8 @@ drop_rows <- c('New England', 'Mideast', 'Great Lakes', 'Plains', 'Southeast',
                'Southwest', 'Rocky Mountain', 'Far West', 'United States')
 state_personal_income <- income %>%
   filter(LineCode==1, !GeoName %in% drop_rows) %>%
-  select(GeoName, quarter_cols) %>%
+  select(GeoName, quarter_cols) 
+state_personal_income <- state_personal_income %>%
   mutate(state=as.character(GeoName),
          t1=as.integer(state_personal_income[['2008:Q3']]), 
          t2=as.integer(state_personal_income[['2015:Q3']]),
@@ -90,27 +92,23 @@ state_personal_income %>%
   labs(title='Changes in Personal Income Outpaced Change in Inflation',
      subtitle='Percent Change calculated using 2015Q3 and 2008Q3 data',
      caption='Source: Bureau of Economic Analysis (US Dept of Commerce)', 
-     x='State', y='Percent Change') + 
-  annotate("text", 'South Dakota', 25.5, label='Median Percent Change') +
-  annotate("text", 'South Dakota', 14, label='Percent Change in CPI')
+     x='State', y='Percent Change in Personal Income') + 
+  annotate("text", 'South Dakota', 25.5, label='Median Income Change') +
+  annotate("text", 'South Dakota', 14, label='Percent Change in CPI') +
+  scale_y_continuous(labels = function(x){paste0(x, '%')})
 
+# Import income distribution data
+income_dist <- read_xlsx('income_dist.xlsx')
 
+income_dist %>%
+  ggplot() +
+  geom_line(aes(x=year, y=avg_income, color=percentile)) +
+  facet_wrap(~percentile) +
+  guides(color=FALSE) +
+  scale_y_continuous(labels = function(x){paste0(x, '$')}) +
+  labs(title='Income Distribution Has Not Kept Pace with CPI',
+       subtitle='Buying power for families in the 10th and 50th Percentiles continues to diminish',
+       caption='Source: Urban Institute', 
+       x='Year', y='Family Income (2016 Dollars)')
+  
 
-
-
-
-per_income <- melt(personal_income, id.var='GeoName')
-per_income <- per_income %>%
-  mutate(date = as.Date(as.yearqtr(variable, format='%Y:Q%q')), state = GeoName, income = as.numeric(value)) %>%
-  select(state, date, income)
-
-ggplot(per_income, aes(x=state, y=income, fill=as.factor(date))) + 
-  geom_bar(stat='identity') + 
-  theme(axis.text.x=element_text(angle=90, hjust=1)) +
-  scale_y_log10() +
-  labs(title='Increase in Personal Income by State',
-       subtitle='Increase calculated using 2015Q3 and 2008Q3 data',
-       caption='Source: Bureau of Economic Analysis (US Dept of Commerce)', 
-       x='State', y='Log(Personal Income in Millions)') +
-  scale_fill_discrete(name='Year',
-                      labels=c('2015', '2008'))

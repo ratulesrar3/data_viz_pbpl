@@ -10,6 +10,7 @@ library(tidyverse)
 library(reshape2)
 library(zoo)
 library(ggrepel)
+library(readxl)
 # Set working directory
 setwd('/Users/ratulesrar/Desktop/data_viz_pbpl/hw2/')
 
@@ -56,6 +57,9 @@ state_personal_income <- state_personal_income %>%
          pct_change=100*(t2-t1)/t1) %>%
   select(state, t1, t2, pct_change) %>%
   mutate(state=factor(state, levels=unique(state)))
+
+# Import income distribution data from Urban Institute
+income_dist <- read_xlsx('income_dist.xlsx')
 ```
 
 ### Graph 1: Are federally reported inflation rates in the US underestimated?
@@ -111,18 +115,30 @@ state_personal_income %>%
   labs(title='Changes in Personal Income Outpaced Change in Inflation',
      subtitle='Percent Change calculated using 2015Q3 and 2008Q3 data',
      caption='Source: Bureau of Economic Analysis (US Dept of Commerce)', 
-     x='State', y='Percent Change') + 
-  annotate("text", 'South Dakota', 25.5, label='Median Percent Change') +
-  annotate("text", 'South Dakota', 14, label='Percent Change in CPI')
+     x='State', y='Percent Change in Personal Income') + 
+  annotate("text", 'South Dakota', 25.5, label='Median Income Change') +
+  annotate("text", 'South Dakota', 14, label='Percent Change in CPI') +
+  scale_y_continuous(labels = function(x){paste0(x, "%")})
 ```
 
 When examining difference in CPI over time, it is also prudent to look at changes to income, or in this case, aggregate personal income by state (seasonally adjusted). Over the time period of this data, the median change in total personal income by state was around 23 percent, while the CPI only increased by 10 percent in the same period of time. It's possible that total personal income is skewed due to the top earners in each state, which may be why that change seems much larger than the change in inflation. 
 
-### Graph 4:
+### Graph 4: Income Distribution Has Not Kept Pace with CPI
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center'}
+income_dist %>%
+  ggplot() +
+  geom_line(aes(x=year, y=avg_income, color=percentile)) +
+  facet_wrap(~percentile) +
+  guides(color=FALSE) +
+  scale_y_continuous(labels = function(x){paste0(x, '$')}) +
+  labs(title='Family Income Has Not Kept Pace with CPI',
+       subtitle='Buying power for families in the 10th and 50th Percentiles continues to diminish',
+       caption='Source: Urban Institute', 
+       x='Year', y='Family Income (2016 Dollars)')
+```
 
-
-
+Disaggregating personal income from graph 3 helps display the growing wealth disparities betweens people in the tails of the income distribution. The 10th and 50th percentile families have experienced little rises in income, while the 90th percentile incomes have increased steadily since 2012. 
 
 
 
