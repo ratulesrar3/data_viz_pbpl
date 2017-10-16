@@ -2,6 +2,7 @@
 library(tidyverse)
 library(reshape2)
 library(zoo)
+library(ggrepel)
 
 # Set working directory
 setwd('/Users/ratulesrar/Desktop/data_viz_pbpl/hw2/')
@@ -37,12 +38,23 @@ agg_cpi <- agg_cpi %>% mutate(cpi = ifelse(is.na(avg_quarterly_cpi), Value, avg_
   mutate(qtr = as.yearqtr(qtr)) %>%
   select(qtr, cpi, source)
 
-ggplot(agg_cpi) +
-  geom_line(aes(x=qtr, y=cpi, color=source)) +
+ggplot(agg_cpi, aes(x=qtr, y=cpi, color=source)) +
+  geom_line() +
   labs(title='Consumer Price Index (CPI) in the United States',
        subtitle='Comparing Pricestats and OECD CPI from 2008Q3 - 2015Q3',
        caption='Source: MIT Billion Prices Project, OECD', 
        x='Year', y='CPI')
+
+agg_cpi %>% 
+  mutate(label=if_else(qtr==max(qtr), as.character(source), NA_character_)) %>%
+  ggplot(aes(x=qtr, y=cpi, color=source)) +
+  geom_line() +
+  scale_colour_discrete(guide=FALSE) +
+  labs(title='Are federally reported inflation rates in the US underestimated?',
+       subtitle='Comparing Pricestats and OECD CPI from 2008Q3 - 2015Q3',
+       caption='Source: MIT Billion Prices Project, OECD', 
+       x='Year', y='CPI') +
+  geom_label_repel(aes(label=label), na.rm=TRUE)
 
 # Import Quarterly Income Data from Bureau of Economic Analysis
 # https://www.bea.gov/iTable/index_regional.cfm
