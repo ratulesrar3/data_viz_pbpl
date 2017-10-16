@@ -41,6 +41,21 @@ merged_cpi <- merged_cpi %>%
   mutate(difference=cpi_ps-cpi_oecd) %>%
   select(qtr, cpi_oecd, cpi_ps, difference)
 
+# Import Quarterly Income Data from Bureau of Economic Analysis
+income <- read_csv('personal_income_quarterly_bystate_2007-2017.csv', skip = 4)
+quarter_cols <- c('2008:Q3', '2015:Q3')
+drop_rows <- c('New England', 'Mideast', 'Great Lakes', 'Plains', 'Southeast', 
+               'Southwest', 'Rocky Mountain', 'Far West', 'United States')
+state_personal_income <- income %>%
+  filter(LineCode==1, !GeoName %in% drop_rows) %>%
+  select(GeoName, quarter_cols) 
+state_personal_income <- state_personal_income %>%
+  mutate(state=as.character(GeoName),
+         t1=as.integer(state_personal_income[['2008:Q3']]), 
+         t2=as.integer(state_personal_income[['2015:Q3']]),
+         pct_change=100*(t2-t1)/t1) %>%
+  select(state, t1, t2, pct_change) %>%
+  mutate(state=factor(state, levels=unique(state)))
 ```
 
 ### Graph 1: Are federally reported inflation rates in the US underestimated?
@@ -80,9 +95,34 @@ merged_cpi %>%
 
 Looking more closely at the differences between the OECD's reported CPI, which is taken from the BLS, and the Pricestats CPI database, we see two interesting things. First, the CPI is trending upward and that makes sense as the United States has not been in a period of deflation since 2008Q3. Second, the difference between Pricestats CPI and OECD CPI is negative during the 2008 recession but has been positive in almost every period since then. It is possible that the BLS has incentive to overestimate CPI during periods of economic stagnation to artificially indicate economic growth.
 
-### Graph 3:
-
+### Graph 3: Changes in Personal Income Outpaced Change in Inflation
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center'}
-
+state_personal_income %>%
+  ggplot(aes(x=state, y=pct_change)) + 
+  theme(axis.text.x=element_text(angle=90, hjust=1),
+        legend.position=c(0,0)) +
+  geom_point(color='#000000', alpha=0.65, stat='identity', size=0.75) +
+  geom_hline(yintercept=median(state_personal_income$pct_change), 
+             aes(linetype='Median Percent Change'),
+             size=0.5, alpha=0.65, linetype='dashed') +
+  geom_hline(yintercept=9.8, aes(linetype='Percent Change in CPI'),
+             size=0.5, alpha=0.85, linetype='dashed') +
+  labs(title='Changes in Personal Income Outpaced Change in Inflation',
+     subtitle='Percent Change calculated using 2015Q3 and 2008Q3 data',
+     caption='Source: Bureau of Economic Analysis (US Dept of Commerce)', 
+     x='State', y='Percent Change') + 
+  annotate("text", 'South Dakota', 25.5, label='Median Percent Change') +
+  annotate("text", 'South Dakota', 14, label='Percent Change in CPI')
 ```
+
+When examining difference in CPI over time, it is also prudent to look at changes to income, or in this case, aggregate personal income by state (seasonally adjusted). Over the time period of this data, the median change in total personal income by state was around 23 percent, while the CPI only increased by 10 percent in the same period of time. It's possible that total personal income is skewed due to the top earners in each state, which may be why that change seems much larger than the change in inflation. 
+
+### Graph 4:
+
+
+
+
+
+
+
