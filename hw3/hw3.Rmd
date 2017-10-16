@@ -1,9 +1,15 @@
-# HW3 Code, Ratul Esrar
+---
+title: "Data Visualizations Short Paper"
+author: "Ratul Esrar"
+date: "10/15/2017"
+output: html_document
+---
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
 library(tidyverse)
 library(reshape2)
 library(zoo)
 library(ggrepel)
-
 # Set working directory
 setwd('/Users/ratulesrar/Desktop/data_viz_pbpl/hw2/')
 
@@ -35,6 +41,10 @@ merged_cpi <- merged_cpi %>%
   mutate(difference=cpi_ps-cpi_oecd) %>%
   select(qtr, cpi_oecd, cpi_ps, difference)
 
+```
+
+### Graph 1: Are federally reported inflation rates in the US underestimated?
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.align='center'}
 # Plot Graph 1
 agg_cpi %>% 
   mutate(label=if_else(qtr==max(qtr), as.character(source), NA_character_)) %>%
@@ -46,7 +56,13 @@ agg_cpi %>%
        caption='Source: MIT Billion Prices Project, OECD & BLS', 
        x='Year', y='CPI') +
   geom_label_repel(aes(label=label), na.rm=TRUE)
+```
 
+Using daily consumer price index calculations calculated by the Pricestats database is arguably a more precise measure of inflation than quarterly reports by the Bureau of Labor Statistics. Looking at quarterly CPI reports relative to the average of daily CPI calculations per quarter from Pricestats shows an interesting relationship, especially during times of recession. The Pricestats CPI is generally higher than the OECD report except during recession periods.
+
+### Graph 2: The BLS underestimates CPI during recessions
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center'}
 # Plot Graph 2
 # I'd like to eventually add a recession thingy to this
 merged_cpi %>%
@@ -60,41 +76,13 @@ merged_cpi %>%
        x='Year', y='Difference in CPI') +
   scale_colour_manual(name='Legend', values='#14bde8') +
   theme(legend.position = c(0.83, 0.1))
+```
 
-# Import Quarterly Income Data from Bureau of Economic Analysis
-# https://www.bea.gov/iTable/index_regional.cfm
-income <- read_csv('personal_income_quarterly_bystate_2007-2017.csv', skip = 4)
-drop_cols <- c('2008:Q3', '2015:Q3')
-drop_rows <- c('New England', 'Mideast', 'Great Lakes', 'Plains', 'Southeast', 
-               'Southwest', 'Rocky Mountain', 'Far West', 'United States')
-personal_income <- income %>% 
-  filter(LineCode == 1, !GeoName %in% drop_rows) %>%
-  select(-c(LineCode, Description)) %>%
-  select(GeoName, '2008:Q3', '2015:Q3') %>%
-  mutate(t1 = as.integer(personal_income[['2008:Q3']]), t2 = as.integer(personal_income[['2015:Q3']])) %>%
-  mutate(pct_change = 100*(t2-t1)/t1)
+Looking more closely at the differences between the OECD's reported CPI, which is taken from the BLS, and the Pricestats CPI database, we see two interesting things. First, the CPI is trending upward and that makes sense as the United States has not been in a period of deflation since 2008Q3. Second, the difference between Pricestats CPI and OECD CPI is negative during the 2008 recession but has been positive in almost every period since then. It is possible that the BLS has incentive to overestimate CPI during periods of economic stagnation to artificially indicate economic growth.
 
-ggplot(personal_income, aes(x=GeoName, y=pct_change)) + 
-  geom_point(stat='identity', color='blue') +
-  theme(axis.text.x=element_text(angle=90, hjust=1)) +
-  geom_smooth(method='lm', aes(group=1), color='black', linetype='dashed', se=FALSE) +
-  labs(title='Percent Change in Personal Income by State',
-       subtitle='Percent Change calculated using 2015Q3 and 2008Q3 data',
-       caption='Source: Bureau of Economic Analysis (US Dept of Commerce)', 
-       x='State', y='Percent Change')
+### Graph 3:
 
-per_income <- melt(personal_income, id.var='GeoName')
-per_income <- per_income %>%
-  mutate(date = as.Date(as.yearqtr(variable, format='%Y:Q%q')), state = GeoName, income = as.numeric(value)) %>%
-  select(state, date, income)
 
-ggplot(per_income, aes(x=state, y=income, fill=as.factor(date))) + 
-  geom_bar(stat='identity') + 
-  theme(axis.text.x=element_text(angle=90, hjust=1)) +
-  scale_y_log10() +
-  labs(title='Increase in Personal Income by State',
-       subtitle='Increase calculated using 2015Q3 and 2008Q3 data',
-       caption='Source: Bureau of Economic Analysis (US Dept of Commerce)', 
-       x='State', y='Log(Personal Income in Millions)') +
-  scale_fill_discrete(name='Year',
-                      labels=c('2015', '2008'))
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center'}
+
+```
