@@ -6,8 +6,12 @@ library(ggrepel)
 library(readxl)
 library(rgdal)
 library(maptools)
-library(raster)
-library(mapproj)
+library(stringr)
+
+if (!require(gpclib)) install.packages("gpclib", type="source")
+gpclibPermit()
+
+
 
 # Set working directory
 setwd('/Users/ratulesrar/Desktop/data_viz_pbpl/hw2/')
@@ -153,23 +157,63 @@ ward_map@data
 ward_map@data$WARD_ID
 
 # Load median income data
-median_income <- read_csv("median_income.csv") %>%
-  mutate(state_id = "State",
-         county_id = "County ID",
-         state = "State / County Name",
-         income2015 = "Median Household Income in Dollars") %>%
-  select(state_id, county_id, state, income2015)
+median_income <- read_csv("county_incomes.csv") %>%
+  mutate(county_fips = county_id) %>%
+  select(county, state, income, state_id, county_fips)
 
+median_income %>%
+  group_by(state) %>%
+  ggplot(aes(x = state, y = income)) +
+    geom_boxplot(fill = "darkorange", alpha = 0.5) + 
+    coord_flip() + scale_x_discrete(limits = rev(levels(income))) +
+    labs(title = "Median household income by state",
+         subtitle = "Source: 2011-2015 American Community Survey") +
+    theme(plot.title = element_text(hjust = 0.5)) + 
+    labs(x = "State", 
+         y = "Median household income",
+         fill = "Median household income") +
+    theme_bw()
+  
+states <- readOGR(dsn="cb_2016_us_state_500k", 
+                  layer = "cb_2016_us_state_500k", 
+                  encoding = "UTF-8", verbose = FALSE)
+states_df <- fortify(states, region="GEOID")
 
-shapefile <- shapefile("cb_2016_us_county_5m/cb_2016_us_county_5m.shp")
-shape_df <- fortify(shapefile)
+state_incomes <- median_income %>% 
+  group_by(state, state_id) %>% 
+  summarize(state_median=median(income)) %>%
+  mutate(id = state_id)
 
+income_df <- full_join(states_df, state_incomes, by='id')
+income_df %>%
+  ggplot() +
+  geom_polygon(data=income_df,
+               aes(x=long, y=lat, group=group, fill = state_median),
+               color='black', size=0.25)
 
+county <- readOGR(dsn="UScounties", 
+                  layer = "UScounties", 
+                  encoding = "UTF-8", verbose = FALSE)
+county_df <- fortify(county, region="CNTY_FIPS")
 
-ggplot() +
-  geom_polygon(data = shape_df, 
-            aes(x = long, y = lat, group=group),
-            color = 'gray', size = .2) +
-  coord_map()
+county_df <- county_df %>%
+  mutate(id = as.numeric(id))
 
+county_poverty <- read_csv("county_poverty.csv") %>%
+  mutate(county_fips = as.numeric(str_sub(as.character(county_id), 2, -1))) %>%
+  select(state, county_fips, state_county_name, poverty_percent)
+  
+poverty_df <- merge(county_poverty, county_df, by.x='county_fips', by.y='id')
+
+poverty_df %>%
+  ggplot() +
+  geom_polygon(aes(x=long, y=lat, group=group, fill=poverty_percent),
+               color='white', size=0.25) +
+  guides(fill=guide_legend(title="% in Poverty")) +
+  #scale_fill_gradient2(limits = c(0, 100000)) +
+  coord_map("albers", lat0 = 29.5, lat1 = 45.5,
+            xlim = c(-124.85, -66.88), ylim = c(24.4, 49.38),
+            orientation = c(90, 0, -98.35)) +
+  labs(title="The Northeast United States have higher median Incomes",
+       caption="Source: 2011-2015 American Community Survey")
 

@@ -1,7 +1,7 @@
 ---
-title: "Data Visualizations Short Paper"
+title: "Data Visualizations Static Graphs"
 author: "Ratul Esrar"
-date: "10/22/2017"
+date: "10/29/2017"
 output:
   html_document: default
   pdf_document: default
@@ -16,6 +16,7 @@ library(readxl)
 require(forcats)
 library(rgdal)
 library(maptools)
+library(stringr)
 if (!require(gpclib)) install.packages("gpclib", type="source")
 gpclibPermit()
 
@@ -111,6 +112,24 @@ scale_fill_dv <- function(...) {
     discrete_scale('fill', 'economist', dv_theme_pal(), ...)
 }
 
+theme_clean_map_dv <- function(base_size = 12) {
+    require(grid)
+    theme_bw(base_size=11, base_family='sans') %+replace%
+    theme(
+        axis.title      =   element_blank(),
+        axis.text       =   element_blank(),
+        axis.ticks       =   element_blank(),
+        panel.background    =   element_blank(),
+        panel.grid      =   element_blank(),
+        panel.spacing    =   unit(0,"lines"),
+        plot.margin     =   unit(c(0,0,0,0),"lines"),
+        legend.background=element_rect(fill='transparent', color=NA),
+        legend.key=element_rect(fill='transparent', color=NA),
+        plot.background=element_rect(fill='gray96', color=NA), 
+        complete = TRUE
+    )
+}
+
 ```
 
 ### Graph 1: Are federally reported inflation rates in the US underestimated?
@@ -193,7 +212,7 @@ income_dist %>%
 
 Disaggregating personal income from graph 3 helps display the growing wealth disparities betweens people in the tails of the income distribution. The 10th and 50th percentile families have experienced little rises in income, while the 90th percentile incomes have increased steadily since 2012. 
 
-### Graph 5: Income
+### Graph 5: Median Household Income Varies Greatly from State to State
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=12, fig.height=10}
 # Set working directory
@@ -205,7 +224,7 @@ median_income <- read_csv("county_incomes.csv") %>%
 median_income %>%
   group_by(state) %>%
   ggplot(aes(x=fct_infreq(state), y=income)) +
-    geom_boxplot(fill = "blue", alpha = 0.8) + 
+    geom_boxplot(fill = "blue", alpha = 0.7) + 
     coord_flip() + scale_x_discrete(limits=rev(levels(income))) +
     labs(title="Median Household Income Varies Greatly from State to State",
          caption="Source: 2011-2015 American Community Survey") +
@@ -216,29 +235,13 @@ median_income %>%
   theme_dv()
 ```
 
-### Graph 6: 
+
+
+### Graph 6: The Northeast United States Have Higher median Incomes
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=10, fig.height=8}
 # Set working directory
 setwd('/Users/ratulesrar/Desktop/data_viz_pbpl/hw2/')
-
-theme_clean_map_dv <- function(base_size = 12) {
-    require(grid)
-    theme_bw(base_size=11, base_family='sans') %+replace%
-    theme(
-        axis.title      =   element_blank(),
-        axis.text       =   element_blank(),
-        axis.ticks       =   element_blank(),
-        panel.background    =   element_blank(),
-        panel.grid      =   element_blank(),
-        panel.spacing    =   unit(0,"lines"),
-        plot.margin     =   unit(c(0,0,0,0),"lines"),
-        legend.background=element_rect(fill='transparent', color=NA),
-        legend.key=element_rect(fill='transparent', color=NA),
-        plot.background=element_rect(fill='gray96', color=NA), 
-        complete = TRUE
-        )
-    }
 
 median_income <- read_csv("county_incomes.csv") %>%
   select(county, state, income, state_id, county_id)
@@ -268,8 +271,40 @@ income_df %>%
        caption="Source: 2011-2015 American Community Survey") +
   theme_dv() +
   theme_clean_map_dv()
-
 ```
 
+### Graph 7: Percent of Population in Poverty Varies Immensely by Region
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=10, fig.height=8}
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz_pbpl/hw2/')
+
+county <- readOGR(dsn="UScounties", 
+                  layer = "UScounties", 
+                  encoding = "UTF-8", verbose = FALSE)
+county_df <- fortify(county, region="CNTY_FIPS")
+
+county_df <- county_df %>%
+  mutate(id = as.numeric(id))
+
+county_poverty <- read_csv("county_poverty.csv") %>%
+  mutate(county_fips = as.numeric(str_sub(as.character(county_id), 2, -1))) %>%
+  select(state, county_fips, state_county_name, poverty_percent)
+  
+poverty_df <- merge(county_poverty, county_df, by.x='county_fips', by.y='id')
+
+poverty_df %>%
+  ggplot() +
+  geom_polygon(aes(x=long, y=lat, group=group, fill=poverty_percent),
+               color='white', size=0.25) +
+  guides(fill=guide_legend(title="% in Poverty")) +
+  scale_fill_gradient2(limits = c(0, 50)) +
+  coord_map("albers", lat0 = 29.5, lat1 = 45.5,
+            xlim = c(-124.85, -66.88), ylim = c(24.4, 49.38),
+            orientation = c(90, 0, -98.35)) +
+  labs(title="Percent of Population in Poverty Varies Immensely by Region",
+       caption="Source: 2011-2015 American Community Survey") +
+  theme_dv() +
+  theme_clean_map_dv()
+```
 
