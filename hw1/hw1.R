@@ -1,10 +1,9 @@
 # DataViz hw1, Ratul Esrar
 # Installing relevant packages
-install.packages('readr')
-install.packages('tidyr')
-install.packages('haven')
-install.packages('stringr')
-install.packages('ggplot2')
+
+# sink("myfile.txt", append=TRUE, split=TRUE)
+sink("myfile.txt", append=FALSE, split=FALSE)
+# sink("/Users/ratulesrar/Desktop/data_viz_pbpl/hw1/myfile.txt")
 
 library(readr)
 library(haven)
@@ -82,3 +81,4 @@ agg_filter3 <- mutate(agg) %>%
                 arrange(desc(difference)) %>%
                 filter(difference > 0.15) %>%
                 filter(!is.na(StateName))
+
