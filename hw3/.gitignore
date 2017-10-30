@@ -1,0 +1,9 @@
+# Ignore files with these extensions
+*.csv
+*.xlsx
+*.Rhistory
+*.shp
+*.xml
+*.cpg
+*.dbf
+*.prj
