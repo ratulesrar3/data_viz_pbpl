@@ -4,6 +4,10 @@ library(reshape2)
 library(zoo)
 library(ggrepel)
 library(readxl)
+library(rgdal)
+library(maptools)
+library(raster)
+library(mapproj)
 
 # Set working directory
 setwd('/Users/ratulesrar/Desktop/data_viz_pbpl/hw2/')
@@ -111,4 +115,61 @@ income_dist %>%
        caption='Source: Urban Institute', 
        x='Year', y='Family Income (2016 Dollars)')
   
+theme_data_viz <- function () { 
+  theme_bw(base_size=14, base_family='Gill Sans') %+replace% 
+      theme(axis.text = element_text(size = rel(0.8)), 
+            axis.ticks = element_line(colour = "black"), 
+            legend.key = element_rect(colour = "grey80"), 
+            panel.background = element_rect(fill = "white", colour = NA), 
+            panel.border = element_rect(fill = NA, colour = "grey50"), 
+            panel.grid.major = element_line(colour = "grey90", size = 0.2), 
+            panel.grid.minor = element_line(colour = "grey98", size = 0.5), 
+            strip.background = element_rect(fill = "grey80", colour = "grey50", 
+                                            size = 0.2))
+}
+
+income <- read_csv('personal_income_quarterly_bystate_2007-2017.csv', skip = 4)
+quarter_cols <- c('2010:Q1', '2010:Q2', '2010:Q3', '2010:Q4',
+                  '2011:Q1', '2011:Q2', '2011:Q3', '2011:Q4',
+                  '2012:Q1', '2012:Q2', '2012:Q3', '2012:Q4',
+                  '2013:Q1', '2013:Q2', '2013:Q3', '2013:Q4',
+                  '2014:Q1', '2014:Q2', '2014:Q3', '2014:Q4',
+                  '2015:Q1', '2015:Q2', '2015:Q3')
+drop_rows <- c('New England', 'Mideast', 'Great Lakes', 'Plains', 'Southeast', 
+               'Southwest', 'Rocky Mountain', 'Far West')
+capita_income <- income %>%
+  filter(LineCode==3, !GeoName %in% drop_rows) %>%
+  select(GeoName, quarter_cols) 
+state_capita_income <- capita_income %>%
+  mutate(state=as.character(GeoName)) %>%
+  mutate(state=factor(state, levels=unique(state))) %>%
+  select(state, quarter_cols)
+
+
+readOGR(dsn="director", layer="filename")
+
+class(ward_map)
+ward_map@data
+ward_map@data$WARD_ID
+
+# Load median income data
+median_income <- read_csv("median_income.csv") %>%
+  mutate(state_id = "State",
+         county_id = "County ID",
+         state = "State / County Name",
+         income2015 = "Median Household Income in Dollars") %>%
+  select(state_id, county_id, state, income2015)
+
+
+shapefile <- shapefile("cb_2016_us_county_5m/cb_2016_us_county_5m.shp")
+shape_df <- fortify(shapefile)
+
+
+
+ggplot() +
+  geom_polygon(data = shape_df, 
+            aes(x = long, y = lat, group=group),
+            color = 'gray', size = .2) +
+  coord_map()
+
 
