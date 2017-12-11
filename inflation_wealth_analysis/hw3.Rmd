@@ -1,0 +1,437 @@
+---
+title: "Exploring Inflation, Income, and Wealth"
+author: "Ratul Esrar"
+date: "December 11, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(reshape2)
+library(zoo)
+library(ggrepel)
+library(readxl)
+require(forcats)
+library(rgdal)
+library(maptools)
+library(fiftystater)
+library(stringr)
+library(directlabels)
+if (!require(gpclib)) install.packages("gpclib", type="source")
+gpclibPermit()
+
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+# Create theme
+theme_dv <- function () {
+  theme_bw(base_size=11, base_family='sans') %+replace%
+    theme(
+      panel.background=element_blank(),
+      plot.background=element_rect(fill='gray96', color=NA), 
+      legend.background=element_rect(fill='transparent', color=NA),
+      legend.key=element_rect(fill='transparent', color=NA))
+}
+
+dv_theme_pal <- function() {
+    function(n) {
+        colors <-c('blue', 'red', 'green')
+        unname(colors[seq_len(n)])
+    }
+}
+
+scale_color_dv <- function(...) {
+    discrete_scale('color', 'economist', dv_theme_pal(), ...)
+}
+
+scale_fill_dv <- function(...) {
+    discrete_scale('fill', 'economist', dv_theme_pal(), ...)
+}
+
+theme_clean_map_dv <- function(base_size = 12) {
+    require(grid)
+    theme_bw(base_size=11, base_family='sans') %+replace%
+    theme(
+        axis.title      =   element_blank(),
+        axis.text       =   element_blank(),
+        axis.ticks       =   element_blank(),
+        panel.background    =   element_blank(),
+        panel.grid      =   element_blank(),
+        panel.spacing    =   unit(0,"lines"),
+        plot.margin     =   unit(c(0,0,0,0),"lines"),
+        legend.background=element_rect(fill='transparent', color=NA),
+        legend.key=element_rect(fill='transparent', color=NA),
+        plot.background=element_rect(fill='gray96', color=NA), 
+        complete = TRUE
+    )
+}
+```
+
+### Graph 1: Does Consumer Price Index Tell the Whole Story?
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=8}
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+# Plot Graph 1
+df <- read_csv("quarterly_inflation.csv")
+
+ps <- df %>%
+  mutate(source="BPP",
+         index_val=pricestats) %>%
+  select(date, index_val, source)
+
+cpi <- df %>%
+  mutate(index_val=bls_agg,
+         source="CPI") %>%
+  select(date, index_val, source)
+
+graph1 <- bind_rows(ps, cpi)
+
+graph1 <- bind_rows(ps, cpi)
+
+graph1 %>%
+  mutate(label=if_else(date==max(date), as.character(source), NA_character_)) %>%
+  mutate(Source=source) %>%
+  ggplot(aes(x=date, y=index_val, color=Source)) +
+  geom_line() +
+  geom_dl(aes(label=Source), method = list(dl.trans(x=x-0.1, y=y+0.225), "last.points", cex = 0.8)) +
+  # geom_label_repel(aes(label=label), nudge_x=20, na.rm=TRUE) +
+  # stat_smooth(aes(y=indexCPI, x=date), 
+  #             method = lm, formula = y ~ poly(x, 10), se=FALSE) +
+  scale_color_manual(values=c("#f47941", "#42c8f4")) +
+  # scale_colour_discrete(guide=FALSE) +
+  labs(title='Does CPI Tell the Whole Story?',
+     subtitle='Comparing Pricestats and BLS CPI from 2008Q3 - 2015Q3',
+     caption='Source: MIT Billion Prices Project (BPP), OECD & BLS (CPI)', 
+     x='Year', y='Inflation Index Value') +
+  theme_dv()
+```
+
+The Bureau of Labor Statistics (BLS) reports a measure of inflation called Consumer Price Index (CPI) each quarter. CPI expresses the current prices of a basket of goods and services relative to the prices of those same goods and services in a previous year to show the effect of inflation on purchasing power. 
+However, CPI may not be the best measure of inflation. Using daily consumer price index calculations calculated by the Pricestats database from MIT's Billion Prices Project is arguably a more precise measure of inflation than quarterly reports by the BLS. Looking at quarterly CPI reports relative to the Pricestats index shows an interesting relationship, especially during times of recession. The Pricestats CPI is generally higher than the BLS report except during recession periods.
+
+### Graph 2: Perhaps the BLS Exercises More Discretion During Recessions
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=8}
+
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+# Import pricestats data from MIT BPP
+pricestats <- read_csv('pricestats_bpp_arg_usa.csv')
+pricestats_usa <- pricestats %>% 
+  filter(country == 'USA') %>%
+  mutate(date = as.Date(date, '%d%b%Y')) %>%
+  mutate(qtr = as.yearqtr(date)) %>%
+  group_by(qtr) %>%
+  summarize(avg_quarterly_cpi = mean(indexPS))
+
+# Import OECD CPI data
+oecd_cpi <- read_csv('us_cpi_oecd.csv')
+oecd_cpi <- oecd_cpi %>%
+  filter(Subject == 'Consumer prices - all items', MEASURE == 'IXOB') %>%
+  mutate(qtr = as.yearqtr(Time, format = 'Q%q-%Y'))
+
+# Merge the pricestats and oecd data
+binded_cpi <- bind_rows(pricestats_usa, oecd_cpi)
+agg_cpi <- binded_cpi %>% mutate(cpi = ifelse(is.na(avg_quarterly_cpi), Value, avg_quarterly_cpi)) %>%
+  mutate(source = ifelse(is.na(Measure), 'Pricestats', 'OECD')) %>%
+  mutate(qtr = as.yearqtr(qtr)) %>%
+  select(qtr, cpi, source)
+
+merged_cpi <- left_join(pricestats_usa, oecd_cpi, by='qtr')
+merged_cpi <- merged_cpi %>%
+  mutate(cpi_oecd=Value, cpi_ps=avg_quarterly_cpi, qtr=as.yearqtr(qtr)) %>%
+  mutate(difference=cpi_ps-cpi_oecd) %>%
+  select(qtr, cpi_oecd, cpi_ps, difference)
+
+# Plot Graph 2
+merged_cpi %>%
+  ggplot(aes(x=qtr, y=difference)) +
+  geom_point(alpha=0.65, color='#cc1420') +
+  geom_smooth(se=FALSE, show.legend=TRUE, span=1.5, 
+              size=0.5, alpha=0.5, aes(color='Trendline (Pricestats ~ BLS)')) +
+  geom_hline(yintercept=0, aes(linetype='Zero Line'), linetype='dashed') +
+  labs(title='Online Prices Generally Higher Except During Recession',
+       subtitle='Comparing the difference between Pricestats Index and BLS Aggregate CPI from 2008Q3 - 2015Q3',
+       caption='Source: MIT Billion Prices Project (BPP), OECD & BLS (CPI)', 
+       x='Year', y='Difference in CPI') +
+  scale_colour_manual(name='Legend', values='#6d6061') +
+  annotate('rect', fill='gray', alpha=0.35, 
+           xmin=2008.25, xmax=2009+6/12, ymin=-Inf, ymax=Inf) +
+  theme_dv() +
+  theme(legend.position = c(0.83, 0.815))
+```
+
+Looking more closely at the differences between the OECD's reported CPI, which is taken from the BLS, and the Pricestats Index of online prices, we see two interesting things. First, the CPI is trending upward and that makes sense as the United States has not been in a period of deflation since 2008Q3. Second, the difference between the Pricestats Index and CPI is negative during the 2008 recession but has been positive in almost every period since then. It is possible that the BLS exercised more discretion in reporting CPI during periods of economic stagnation to artificially indicate economic growth.
+
+### Graph 3: Despite the Great Recession, Housing Prices Rose Faster than CPI
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=8}
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+# Import bls/oecd data
+oecd_cpi <- read_csv('us_cpi_oecd.csv')
+oecd_cpi <- oecd_cpi %>%
+  filter(MEASURE == 'IXOB') %>%
+  mutate(qtr = as.yearqtr(Time, format = 'Q%q-%Y'))
+
+oecd_cpi <- oecd_cpi %>%
+  mutate(label=if_else(qtr==max(qtr), as.character(Subject), NA_character_)) %>%
+  mutate(subject=if_else(Subject=="Consumer prices - food", "Food", Subject)) %>%
+  mutate(subject=if_else(Subject=="Consumer prices - energy", "Energy", subject)) %>%
+  mutate(subject=if_else(Subject=="Consumer prices - all items non-food, non-energy", "Non-food, non-energy", subject)) %>%
+  mutate(subject=if_else(Subject=="Consumer prices - services less housing", "Non-housing", subject)) %>%
+  mutate(subject=if_else(Subject=="Consumer prices - housing", "Housing", subject)) %>%
+  mutate(subject=if_else(Subject=="Consumer prices - all items", "All", subject))
+
+graph2 <- oecd_cpi %>%
+  filter(subject != "Non-housing") %>%
+  filter(subject != "Non-food, non-energy") %>%
+  select(qtr, Value, subject)
+
+graph2 %>%
+  filter(subject != "Food") %>%
+  mutate(Index=subject) %>%
+  ggplot(aes(x=qtr, y=Value, color=Index)) +
+  geom_line() +
+  geom_dl(aes(label=subject), 
+          method=list(dl.trans(x=x+0.2, y=y), 
+                      dl.combine("last.points"), cex=0.8)) +
+  scale_colour_manual(values=c("#42c8f4", "#50bf11", "#a041f4")) +
+  # scale_colour_discrete(guide=FALSE) +
+  scale_x_continuous(limits=c(2008.5, 2016.25)) +
+  labs(title='Housing Prices Rising Amidst Fluctuating Energy Prices',
+       subtitle='Comparing Pricestats and OECD CPI from 2008Q3 - 2015Q3',
+       caption='Source: OECD & BLS (CPI)', 
+       x='Year', y='Inflation Index Value') +
+  theme_dv()
+```
+
+What happens when we look at other price indexes broken down by housing and energy, two services everyone uses? It looks as though major fluctuations in energy prices may skew the aggregate CPI, since housing prices have been rising steadily, yet the aggregate follows the troughs in energy prices.
+
+### Graph 4: Changes in Average Personal Income Outpaced Change in Inflation
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=8}
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+# Import Quarterly Income Data from Bureau of Economic Analysis
+income <- read_csv('personal_income_quarterly_bystate_2007-2017.csv', skip = 4)
+quarter_cols <- c('2008:Q3', '2015:Q3')
+drop_rows <- c('New England', 'Mideast', 'Great Lakes', 'Plains', 'Southeast', 
+               'Southwest', 'Rocky Mountain', 'Far West', 'United States')
+state_personal_income <- income %>%
+  filter(LineCode==1, !GeoName %in% drop_rows) %>%
+  select(GeoName, quarter_cols) 
+state_personal_income <- state_personal_income %>%
+  mutate(state=as.character(GeoName),
+         t1=as.integer(state_personal_income[['2008:Q3']]), 
+         t2=as.integer(state_personal_income[['2015:Q3']]),
+         pct_change=100*(t2-t1)/t1) %>%
+  select(state, t1, t2, pct_change) %>%
+  mutate(state=factor(state, levels=unique(state)))
+
+quarter_cols_2 <- c('2010:Q1', '2010:Q2', '2010:Q3', '2010:Q4',
+                  '2011:Q1', '2011:Q2', '2011:Q3', '2011:Q4',
+                  '2012:Q1', '2012:Q2', '2012:Q3', '2012:Q4',
+                  '2013:Q1', '2013:Q2', '2013:Q3', '2013:Q4',
+                  '2014:Q1', '2014:Q2', '2014:Q3', '2014:Q4',
+                  '2015:Q1', '2015:Q2', '2015:Q3')
+drop_rows_2 <- c('New England', 'Mideast', 'Great Lakes', 'Plains', 'Southeast', 
+                 'Southwest', 'Rocky Mountain', 'Far West')
+capita_income <- income %>%
+  filter(LineCode==3, !GeoName %in% drop_rows_2) %>%
+  select(GeoName, quarter_cols_2) 
+state_capita_income <- capita_income %>%
+  mutate(state=as.character(GeoName)) %>%
+  mutate(state=factor(state, levels=unique(state))) %>%
+  select(state, quarter_cols_2)
+
+state_personal_income %>%
+  ggplot(aes(x=reorder(x=state, -pct_change), y=pct_change)) + 
+  geom_point(color='#cc1420', alpha=0.65, stat='identity', size=0.85) +
+  geom_hline(yintercept=9.8, aes(linetype='Percent Change in CPI'),
+             size=0.5, alpha=0.85, linetype='dashed') +
+  labs(title='Changes in Average Personal Income by State Outpaced Change in Inflation',
+     subtitle="Personal income refers to an individual's total earnings from wages and investments",
+     caption='Source: Bureau of Economic Analysis (US Dept of Commerce)', 
+     x='State', y='Percent Change in Personal Income') + 
+  annotate('text', 'Virginia', 12.5, label='Percent Change in CPI from 2008Q3 - 2015Q3') +
+  scale_y_continuous(labels = function(x){paste0(x, '%')}) +
+  # scale_y_reverse() +
+  # scale_x_discrete(position="top") +
+  theme_dv() +
+  theme(axis.text.x=element_text(angle=90, vjust=0.25, hjust=1),
+        legend.position=c(0,0))
+```
+
+When examining difference in CPI over time, it is also prudent to look at changes to income, or in this case, aggregate personal income by state (seasonally adjusted), which encompasses a person's total earnings and investments. Between 2008 and 2015, the median change in total personal income by state was around 23 percent, while the CPI only increased by 10 percent in the same period of time. It's possible that total personal income is skewed due to the top earners in each state, which may be why that change seems much larger than the change in inflation. There are also geographic factors to consider.
+
+### Graph 5: Breaking Down Net Family Income by Percentile Tells a Another Story 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=8}
+
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+# Import income distribution data from Urban Institute
+income_dist <- read_xlsx('income_dist.xlsx')
+
+income_dist %>%
+  ggplot() +
+  geom_line(aes(x=year, y=avg_income, color=percentile)) +
+  facet_wrap(~percentile) +
+  guides(color=FALSE) +
+  scale_y_continuous(labels = function(x){paste0('$',x)}) +
+  labs(title='Median and Disadvantaged Family Incomes in 2015 Were Lower than in 2008',
+       subtitle='Families in 90th percentile saw more modest growth in income',
+       caption='Source: Survey of Consumer Finacnes, Urban Institute', 
+       x='Year', y='Family Income (2016 Dollars)') +
+  theme_dv()
+```
+
+While personal income has increased by state, it seems like familes in the 50th and 10th percentiles of the income distribution have seen little increase in their net income since 2008. On the other hand, families in the 90th percentile of income have experienced a much more dramatic increase in income since 2008. Certainly, measures on income at the state level are highly skewed due to top earners.
+
+### Graph 6: Family Income at the 10th Percentile Decreased While Prices of Goods Increased from 2009 to 2014
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=8}
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+# Import income distribution data from Urban Institute
+income_10 <- read_xlsx('income_dist.xlsx') %>%
+  filter(percentile=="10th") %>%
+  mutate(year=as.character(year))
+
+df <- read_csv("quarterly_inflation.csv")
+cpi <- df %>%
+  mutate(index_val=bls_agg,
+         source="CPI") %>%
+  select(date, index_val, source)
+
+cpi_year <- cpi %>%
+  mutate(year=format(as.Date(date, format="%Y-%m-%d"),"%Y")) %>%
+  group_by(year) %>%
+  summarize(index=mean(index_val)) %>%
+  mutate(source="cpi")
+
+cpi_income_10 <- bind_cols(income_10, cpi_year)
+cpi_income <- cpi_income_10 %>%
+  mutate(income=avg_income) %>%
+  select(year, income, percentile, index)
+
+cpi_income %>%
+  ggplot(aes(x=year)) +
+  geom_line(aes(y=income), group=1, color="#50bf11", size=1) +
+  geom_line(aes(y=index*120), group=1, color="#42c8f4", size=1) +
+  scale_y_continuous(labels=function(x){paste0("$", x)},
+                     sec.axis=sec_axis(~.*0.0083, name="Yearly Average CPI")) +
+  annotate('text', '2015', 14200, label='10th Percentile\n Income', color='#50bf11') +
+  annotate('text', '2015', 13100, label='CPI', color='#42c8f4') +
+  # scale_colour_manual(values=c("#42c8f4", "#50bf11")) +
+  labs(title='Family Income for Poor Families Has Not Kept Pace with CPI',
+       subtitle='Buying power for families in the 10th percentile lower in 2015 than 2008',
+       caption='Source: Suvery of Consumer Finances, Urban Institute', 
+       x='Year', y='Family Income (2016 Dollars)',
+       color="Parameter") +
+  theme_dv()
+```
+Taking a closer look, we can see that the 10th percentile family income decreased steadily from 2008 to 2012, but overall, the 2015 level was lower than that 2008 level. At the same time, CPI steadily increased until plateauing in 2014.
+
+### Graph 7: Median Income Varies Highest in Northeastern States
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=10, fig.height=9}
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+median_income <- read_csv("county_incomes.csv") %>%
+  select(county, state, income, state_id, county_id)
+median_income[is.na(median_income)] <- 56875
+
+state_incomes <- median_income %>% 
+  group_by(state, state_id) %>% 
+  summarize(state_median=median(income)) %>%
+  mutate(id = state_id) %>%
+  mutate(state_lower = tolower(state))
+
+state_incomes %>%
+  ggplot(aes(map_id=state_lower)) + 
+  geom_map(aes(fill=state_median), map=fifty_states) + 
+  expand_limits(x=fifty_states$long, y=fifty_states$lat) +
+  coord_map() +
+  guides(fill=guide_legend(title="Median\nIncome\n(USD)")) +
+  scale_fill_gradient("#3fbf05", low="grey90", name="Median Income (USD)", 
+                      labels = c("$20-30k", "$30-40k", "$40-50k", "$50-60k", "$60-70k", "$70k+"),
+                      breaks = c(20000, 30000, 40000, 50000, 60000, 70000)) +
+  labs(title="The Northeast United States Has Higher Median Incomes",
+       subtitle="Adjusted for 2016 USD",
+       caption="Source: 2011-2015 American Community Survey") +
+  theme_dv() +
+  theme_clean_map_dv()
+
+# states <- readOGR(dsn="cb_2016_us_state_500k", 
+#                   layer = "cb_2016_us_state_500k", 
+#                   encoding = "UTF-8", verbose = FALSE)
+# states_df <- fortify(states, region="GEOID")
+# 
+# income_df <- full_join(states_df, state_incomes, by='id')
+
+# income_df %>%
+#   ggplot() +
+#   geom_polygon(aes(x=long, y=lat, group=group, fill=state_median),
+#                color='white', size=0.25) +
+#   guides(fill=guide_legend(title="Median Income (USD)")) +
+#   #scale_fill_gradient2(limits = c(0, 100000)) +
+#   coord_map("albers", lat0 = 29.5, lat1 = 45.5,
+#             xlim = c(-124.85, -66.88), ylim = c(24.4, 49.38),
+#             orientation = c(90, 0, -98.35)) +
+#   labs(title="The Northeast United States have higher median Incomes",
+#        caption="Source: 2011-2015 American Community Survey") +
+#   theme_dv() +
+#   theme_clean_map_dv()
+```
+
+The highest median incomes by state are located in the Northeast, where the states are smaller, so populations are more urban, and the cities have higher cost of living. That being said, the median family income has also not recovered to the pre-recession level as we saw in graph 5. 
+
+### Graph 8: Percent of Population in Poverty Varies but Easier to See in Rural Regions
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=10, fig.height=8}
+# Set working directory
+setwd('/Users/ratulesrar/Desktop/data_viz/data_viz_pbpl/hw2/')
+
+county <- readOGR(dsn="UScounties", 
+                  layer = "UScounties", 
+                  encoding = "UTF-8", verbose = FALSE)
+county_df <- fortify(county, region="CNTY_FIPS")
+
+county_df <- county_df %>%
+  mutate(id = as.numeric(id))
+
+county_poverty <- read_csv("county_poverty.csv") %>%
+  mutate(county_fips = as.numeric(str_sub(as.character(county_id), 2, -1))) %>%
+  select(state, county_fips, state_county_name, poverty_percent)
+  
+poverty_df <- merge(county_poverty, county_df, by.x='county_fips', by.y='id')
+
+poverty_df %>%
+  ggplot() +
+  geom_polygon(aes(x=long, y=lat, group=group, fill=poverty_percent),
+               color='grey90', size=0.25) +
+  guides(fill=guide_legend(title="% in Poverty")) +
+  scale_fill_gradient2(limits = c(0, 50),
+                       labels = c("0-10%", "10-20%", "20-30%", "30-40%", ">40%"),
+                       breaks = c(0, 10, 20, 30, 40)) +
+  coord_map("albers", lat0 = 29.5, lat1 = 45.5,
+            xlim = c(-124.85, -66.88), ylim = c(24.4, 49.38),
+            orientation = c(90, 0, -98.35)) +
+  labs(title="Percent of Population in Poverty Varies Immensely by Region",
+       subtitle="Poverty defined as less than $24,600 for a family of 4",
+       caption="Source: 2011-2015 American Community Survey") +
+  theme_dv() +
+  theme_clean_map_dv()
+```
+
+Alaska and Hawaii have different poverty cutoffs than the contiguous 48 states and DC, and were dropped from the chart. The counties with largest percent of population in poverty are concentrated in the rural regions of Nevada, Utah, and Wyoming.
