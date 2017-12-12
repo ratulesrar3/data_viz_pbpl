@@ -150,11 +150,11 @@ state_capita_income <- capita_income %>%
   select(state, quarter_cols)
 
 
-readOGR(dsn="director", layer="filename")
-
-class(ward_map)
-ward_map@data
-ward_map@data$WARD_ID
+# readOGR(dsn="director", layer="filename")
+# 
+# class(ward_map)
+# ward_map@data
+# ward_map@data$WARD_ID
 
 # Load median income data
 median_income <- read_csv("county_incomes.csv") %>%

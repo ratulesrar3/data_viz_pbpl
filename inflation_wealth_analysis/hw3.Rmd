@@ -435,3 +435,12 @@ poverty_df %>%
 ```
 
 Alaska and Hawaii have different poverty cutoffs than the contiguous 48 states and DC, and were dropped from the chart. The counties with largest percent of population in poverty are concentrated in the rural regions of Nevada, Utah, and Wyoming.
+
+### Data Sources (Order of Appearence)
+- Cavallo, Alberto; Rigobon, Roberto, 2016, "Cavallo, Alberto, and Roberto Rigobon (2016) "The Billion Prices Project: Using Online Data for Measurement and Research" - Journal of Economic Perspectives , 31(1) (Spring 2016)", doi:10.7910/DVN/6RQCRS, Harvard Dataverse, V2
+- OECD (2017), Inflation (CPI) (indicator). doi: 10.1787/eee82e6e-en (Accessed on 11 December 2017)
+- U.S. Bureau of Economic Analysis, “Relation of Gross Domestic Product, Gross National Product, Net National Product, National Income, and Personal Income,” https://www.bea.gov/iTable/iTable.cfm?reqid=19&step=2# (Accessed on 11 December 2017)
+- Smith, Karen, Urban Institute's tabulations from the Current Population Survey 1963–2017, http://apps.urban.org/features/wealth-inequality-charts/data/IncomeDistribution.xlsx, (Accessed on 11 December 2017)
+- U.S. Census Bureau; 2015 ACS 1-year and 2011-2015 ACS 5-year Data Releases
+
+
